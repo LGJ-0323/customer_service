@@ -1,0 +1,81 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ics-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-123456}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-order_information}
+    ports:
+      - "${MYSQL_PUBLIC_PORT:-3307}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./sql/001_create_customer_orders.sql:/docker-entrypoint-initdb.d/001_create_customer_orders.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_PASSWORD:-123456}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  order-mcp:
+    build: .
+    container_name: ics-order-mcp
+    command: python order_mcp_server.py
+    env_file:
+      - .env
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      ORDER_MCP_HOST: 0.0.0.0
+      ORDER_MCP_PORT: 6101
+    ports:
+      - "6101:6101"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  logistics-mcp:
+    build: .
+    container_name: ics-logistics-mcp
+    command: python logistics_mcp_server.py
+    env_file:
+      - .env
+    environment:
+      LOGISTICS_MCP_HOST: 0.0.0.0
+      LOGISTICS_MCP_PORT: 6102
+    ports:
+      - "6102:6102"
+
+  router:
+    build: .
+    container_name: ics-router
+    command: python router_agent.py
+    env_file:
+      - .env
+    environment:
+      ORDER_MCP_URL: http://order-mcp:6101
+      LOGISTICS_MCP_URL: http://logistics-mcp:6102
+      ROUTER_HOST: 0.0.0.0
+      ROUTER_PORT: 6200
+    ports:
+      - "6200:6200"
+    depends_on:
+      - order-mcp
+      - logistics-mcp
+
+  api:
+    build: .
+    container_name: ics-api
+    command: python api_server.py
+    env_file:
+      - .env
+    environment:
+      ROUTER_PORT: 6200
+      API_HOST: 0.0.0.0
+      API_PORT: 6300
+    ports:
+      - "6300:6300"
+    depends_on:
+      - router
+
+volumes:
+  mysql_data:

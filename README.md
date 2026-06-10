@@ -211,5 +211,3 @@ D:/Anaconda3/envs/agent/python.exe -m unittest discover -s tests -v
 - API 返回脱敏后的手机号
 - 前端 raw task 展示的是脱敏结果
 - 订单 MCP 只允许查询 `customer_orders` 的单条 SELECT
-
-仍不属于生产级系统。生产环境还需要登录态、权限校验、限流、审计日志、参数化 SQL、更严格的会话状态管理和供应商错误码治理。
